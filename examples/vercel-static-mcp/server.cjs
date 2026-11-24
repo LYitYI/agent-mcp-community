@@ -1,8 +1,9 @@
+const { randomBytes } = require('node:crypto');
 const readline = require('node:readline');
 const { setTimeout: wait } = require('node:timers/promises');
 
 const serverName = 'vercel-static-deploy';
-const version = '1.1.0';
+const version = '1.2.0';
 const projectPattern = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const deploymentPattern = /^dpl_[a-zA-Z0-9]+$/;
 const teamPattern = /^team_[a-zA-Z0-9]+$/;
@@ -20,14 +21,14 @@ const credentials = {
 const tools = [
   {
     name: 'vercel_deploy_static',
-    description: '根据用户的网页需求生成静态前端，再调用此工具发布到预设 Vercel 项目的生产环境。工具接收助理生成的 HTML 和静态资源，返回 Vercel 的部署 ID、状态和网址。',
+    description: '根据用户需求生成完整 HTML，通过 html 参数提交并发布到 Vercel。使用预设或用户指定的项目名；未指定项目名时由工具自动生成。返回部署 ID、状态和网址。',
     inputSchema: {
       type: 'object',
       properties: {
         ...credentials,
         project_name: {
           type: 'string',
-          description: '专用于这次部署的 Vercel 项目名。建议在参数预设中填写。',
+          description: '可选。填写小写的 Vercel 项目名可复用指定项目。留空时自动生成新项目名。',
         },
         html: { type: 'string', description: '由助理根据用户需求生成的完整 index.html。简单页面可内联 CSS。' },
         assets: {
@@ -43,19 +44,19 @@ const tools = [
           },
         },
       },
-      required: ['access_token', 'project_name', 'html'],
+      required: ['access_token'],
     },
   },
   {
     name: 'vercel_deployment_status',
-    description: '用发布工具返回的部署 ID 查询同一次 Vercel 部署的状态和网址。',
+    description: '将发布工具返回的部署 ID 作为 deployment_id 参数传入，查询同一次 Vercel 部署的状态和网址。',
     inputSchema: {
       type: 'object',
       properties: {
         ...credentials,
         deployment_id: { type: 'string', description: '发布工具结果中的 deployment_id，以 dpl_ 开头。' },
       },
-      required: ['access_token', 'deployment_id'],
+      required: ['access_token'],
     },
   },
 ];
@@ -148,13 +149,14 @@ function summarizeDeployment(deployment) {
 
 async function deployStatic(args) {
   const auth = vercelCredentials(args);
-  const project = args.project_name;
-  if (typeof project !== 'string' || !projectPattern.test(project)) {
+  const project = typeof args.project_name === 'string' ? args.project_name.trim() : args.project_name;
+  if (project !== undefined && project !== '' && (typeof project !== 'string' || !projectPattern.test(project))) {
     throw new ToolError('project_name 需为 1 到 64 个小写字母、数字或连字符，首尾为字母或数字。');
   }
   const files = projectFiles(args.html, args.assets);
+  const projectName = project || 'agentx-site-' + randomBytes(8).toString('hex');
   const initial = await vercelRequest('/v13/deployments', auth, {
-    name: project,
+    name: projectName,
     target: 'production',
     files,
     projectSettings: { framework: null, buildCommand: null, installCommand: null, outputDirectory: 'public' },
