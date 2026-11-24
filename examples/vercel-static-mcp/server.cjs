@@ -2,7 +2,7 @@ const readline = require('node:readline');
 const { setTimeout: wait } = require('node:timers/promises');
 
 const serverName = 'vercel-static-deploy';
-const version = '1.0.0';
+const version = '1.1.0';
 const projectPattern = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
 const deploymentPattern = /^dpl_[a-zA-Z0-9]+$/;
 const teamPattern = /^team_[a-zA-Z0-9]+$/;
@@ -20,7 +20,7 @@ const credentials = {
 const tools = [
   {
     name: 'vercel_deploy_static',
-    description: '将静态 HTML 页面和可选资源发布到指定 Vercel 项目的生产环境。返回部署状态和访问地址。',
+    description: '根据用户的网页需求生成静态前端，再调用此工具发布到预设 Vercel 项目的生产环境。工具接收助理生成的 HTML 和静态资源，返回 Vercel 的部署 ID、状态和网址。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -29,10 +29,10 @@ const tools = [
           type: 'string',
           description: '专用于这次部署的 Vercel 项目名。建议在参数预设中填写。',
         },
-        html: { type: 'string', description: '完整的 index.html 源码。' },
+        html: { type: 'string', description: '由助理根据用户需求生成的完整 index.html。简单页面可内联 CSS。' },
         assets: {
           type: 'array',
-          description: '可选的 UTF-8 静态文件，例如 styles.css 或 scripts/main.js。',
+          description: '由助理生成且 HTML 引用的可选 UTF-8 静态资源，例如 styles.css 或 scripts/main.js。',
           items: {
             type: 'object',
             properties: {
@@ -48,12 +48,12 @@ const tools = [
   },
   {
     name: 'vercel_deployment_status',
-    description: '用 Vercel 返回的部署 ID 查询状态和访问地址。',
+    description: '用发布工具返回的部署 ID 查询同一次 Vercel 部署的状态和网址。',
     inputSchema: {
       type: 'object',
       properties: {
         ...credentials,
-        deployment_id: { type: 'string', description: '部署 ID，以 dpl_ 开头。' },
+        deployment_id: { type: 'string', description: '发布工具结果中的 deployment_id，以 dpl_ 开头。' },
       },
       required: ['access_token', 'deployment_id'],
     },
